@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
     "db:setup": "psql \"$DATABASE_URL\" -f src/schema.sql"
   },
   "dependencies": {
