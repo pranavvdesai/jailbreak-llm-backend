@@ -116,7 +116,9 @@ router.get('/', async (req, res) => {
               game_name  AS "gameName",
               difficulty,
               persona_id AS "persona",
-              sql_data   AS "sqlData"
+              sql_data   AS "sqlData",
+              proof_ipfs AS "proofIpfs",
+              proof_smart_contract AS "proofSmartContract"
             FROM contest_game_configs
             WHERE contest_id = ANY($1::uuid[])
             ORDER BY game_id ASC
@@ -134,6 +136,10 @@ router.get('/', async (req, res) => {
               difficulty: g.difficulty,
               persona: g.persona ? { persona: g.persona.persona } : null,
               sqlData: g.sqlData ? { name: g.sqlData.name } : null,
+              proof: {
+                ipfs: g.proofIpfs || null,
+                smartContract: g.proofSmartContract || null,
+              },
             });
           }
 
@@ -193,7 +199,9 @@ router.get('/:contestId', async (req, res) => {
     game_name AS "gameName",
     difficulty,
     persona_id AS "persona",
-    sql_data AS "sqlData"
+    sql_data AS "sqlData",
+    proof_ipfs AS "proofIpfs",
+    proof_smart_contract AS "proofSmartContract"
   FROM contest_game_configs
   WHERE contest_id = $1
   ORDER BY game_id ASC
@@ -208,6 +216,10 @@ router.get('/:contestId', async (req, res) => {
           difficulty: g.difficulty,
           persona: g.persona ? { persona: g.persona.persona } : null,
           sqlData: g.sqlData ? { name: g.sqlData.name } : null,
+          proof: {
+            ipfs: g.proofIpfs || null,
+            smartContract: g.proofSmartContract || null,
+          },
         }));
 
         res.json(contest);

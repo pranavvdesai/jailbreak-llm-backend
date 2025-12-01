@@ -296,9 +296,11 @@ router.post('/contests/:contestId/games', async (req, res) => {
         max_attempts_per_player,
         max_hints,
         sql_data,
+        proof_ipfs,
+        proof_smart_contract,
         is_active
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *
       `,
       [
@@ -312,6 +314,8 @@ router.post('/contests/:contestId/games', async (req, res) => {
         maxAttemptsPerPlayer || null,
         maxHints || null,
         sqlData,
+        null, // proof_ipfs (optional, can be updated later)
+        null, // proof_smart_contract (optional, can be updated later)
         isActive !== false,
       ]
     );
@@ -376,6 +380,10 @@ router.post('/contests/:contestId/games', async (req, res) => {
       maxAttemptsPerPlayer: game.max_attempts_per_player,
       maxHints: game.max_hints,
       sqlData: game.sql_data,
+      proof: {
+        ipfs: game.proof_ipfs || null,
+        smartContract: game.proof_smart_contract || null,
+      },
       isActive: game.is_active,
       createdAt: game.created_at,
       gameType,

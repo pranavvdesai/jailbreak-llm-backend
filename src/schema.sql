@@ -58,6 +58,9 @@ CREATE TABLE contest_game_configs (
     max_hints INT,
     -- SQL leak metadata (optional)
     sql_data JSONB,
+    -- Proof metadata (optional)
+    proof_ipfs TEXT,
+    proof_smart_contract TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
     UNIQUE (contest_id, game_id)
