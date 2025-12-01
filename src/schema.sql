@@ -56,6 +56,8 @@ CREATE TABLE contest_game_configs (
     model_name VARCHAR(100),
     max_attempts_per_player INT,
     max_hints INT,
+    -- SQL leak metadata (optional)
+    sql_data JSONB,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
     UNIQUE (contest_id, game_id)

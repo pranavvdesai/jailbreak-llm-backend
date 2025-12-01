@@ -149,7 +149,9 @@ router.get('/:contestId', async (req, res) => {
     id AS "gameConfigId",
     game_id AS "gameId",
     game_name AS "gameName",
-    difficulty
+    difficulty,
+    persona_id AS "persona",
+    sql_data AS "sqlData"
   FROM contest_game_configs
   WHERE contest_id = $1
   ORDER BY game_id ASC

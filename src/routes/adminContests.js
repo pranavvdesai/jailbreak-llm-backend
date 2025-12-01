@@ -203,6 +203,9 @@ router.post('/contests/:contestId/games', async (req, res) => {
     // secret answer (plaintext) for this game in this contest
     let secretAnswer = null;
 
+    // SQL leak metadata
+    let sqlData = null;
+
     // BASIC SYSTEM PROMPT default (can be overridden by body)
     let finalSystemPrompt =
       systemPrompt ||
@@ -224,19 +227,18 @@ router.post('/contests/:contestId/games', async (req, res) => {
 
     // --- TYPE 2: SQL_INJECTION ---
     else if (gameType === GAME_TYPE.SQL_INJECTION) {
-     // randomize persona combo (same logic as PASSWORD_RETRIEVAL)
-    const combo = pickPersonaCombo();
-    personaJSON = {
+      // randomize persona combo (same logic as PASSWORD_RETRIEVAL)
+      const combo = pickPersonaCombo();
+      personaJSON = {
         persona: combo.persona,
         weakness: combo.weakness,
         deflection: combo.deflection,
-    };
+      };
 
-      // 1) random row + field (ONLY used here, not stored)
+      // 1) random row + field
       const targetRowId = Math.floor(Math.random() * 100) + 1; // 1..100
       const fields = ['ssn', 'salary', 'email'];
-      const targetField =
-        fields[Math.floor(Math.random() * fields.length)];
+      const targetField = fields[Math.floor(Math.random() * fields.length)];
 
       // 2) fetch secret from AI
       const sqlSecret = await fetchSqlSecret({
@@ -260,8 +262,8 @@ router.post('/contests/:contestId/games', async (req, res) => {
 
       // 3) final secretAnswer used for DB + ZK
       secretAnswer = answer;
+      sqlData = sqlSecret.secret;
 
-      // (targetRowId / targetField intentionally NOT stored in DB)
       console.log(
         '[SQL_INJECTION] Generated secret',
         JSON.stringify({
@@ -293,9 +295,10 @@ router.post('/contests/:contestId/games', async (req, res) => {
         model_name,
         max_attempts_per_player,
         max_hints,
+        sql_data,
         is_active
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       RETURNING *
       `,
       [
@@ -308,6 +311,7 @@ router.post('/contests/:contestId/games', async (req, res) => {
         modelName || null,
         maxAttemptsPerPlayer || null,
         maxHints || null,
+        sqlData,
         isActive !== false,
       ]
     );
@@ -371,6 +375,7 @@ router.post('/contests/:contestId/games', async (req, res) => {
       modelName: game.model_name,
       maxAttemptsPerPlayer: game.max_attempts_per_player,
       maxHints: game.max_hints,
+      sqlData: game.sql_data,
       isActive: game.is_active,
       createdAt: game.created_at,
       gameType,
