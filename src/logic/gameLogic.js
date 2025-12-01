@@ -8,8 +8,7 @@ export const GAME_TYPE = {
 };
 
 // Personas/weakness/deflection keys.
-// Keep these aligned with ML dev’s Python for consistency.
-// These are just KEYS; AI will map them to full behavior text.
+// These are KEYS only; AI will map them to full behavior text.
 const PERSONA_KEYS = ['librarian', 'sysadmin', 'butler', 'guard', 'intern', 'compliance'];
 
 const WEAKNESS_KEYS = [
@@ -31,6 +30,39 @@ const DEFLECTION_KEYS = [
   'credential_check',
   'playing_dumb',
 ];
+
+// --- NEW: Python get_all_combinations port ---
+
+const HARD_BLOCKERS = ['credential_check', 'flat_denial'];
+const SOFT_WEAKNESSES = ['politeness', 'flattery', 'roleplay', 'reverse_psychology'];
+
+/**
+ * Compute all valid (persona, weakness, deflection) combos,
+ * applying the same filter as Python get_all_combinations:
+ *
+ * - If deflection in HARD_BLOCKERS AND weakness in SOFT_WEAKNESSES => skip
+ */
+function computeValidCombinations() {
+  const combos = [];
+
+  for (const p of PERSONA_KEYS) {
+    for (const w of WEAKNESS_KEYS) {
+      for (const d of DEFLECTION_KEYS) {
+        // Exception Rule: Hard Blockers + Soft Weaknesses = BAD
+        if (HARD_BLOCKERS.includes(d) && SOFT_WEAKNESSES.includes(w)) {
+          continue;
+        }
+
+        combos.push({ persona: p, weakness: w, deflection: d });
+      }
+    }
+  }
+
+  return combos;
+}
+
+// Precompute once at module load
+const VALID_COMBINATIONS = computeValidCombinations();
 
 // Hints map (copied from ML dev Python)
 const HINTS = {
@@ -83,7 +115,6 @@ function pickRandom(arr) {
 
 /**
  * Generate a secret answer like "OMEGA-742"
- * (port of the Python generate_secret)
  */
 export function generateSecret(contestId) {
   const words = [
@@ -104,26 +135,22 @@ export function generateSecret(contestId) {
 }
 
 /**
- * For PASSWORD_RETRIEVAL:
- * pick persona + weakness + deflection keys.
- * Store them in persona_id JSON in DB.
+ * For PASSWORD_RETRIEVAL / SQL_INJECTION:
+ * pick persona + weakness + deflection KEYS from the valid set.
  *
- * persona_id JSON shape:
+ * persona_id JSON shape stored in DB:
  * {
  *   "persona": "guard",
- *   "weakness": "politeness",
+ *   "weakness": "technical",
  *   "deflection": "flat_denial"
  * }
  */
 export function pickPersonaCombo() {
-  const persona = pickRandom(PERSONA_KEYS);
-  const weakness = pickRandom(WEAKNESS_KEYS);
-  const deflection = pickRandom(DEFLECTION_KEYS);
-
+  const combo = pickRandom(VALID_COMBINATIONS);
   return {
-    persona,
-    weakness,
-    deflection,
+    persona: combo.persona,
+    weakness: combo.weakness,
+    deflection: combo.deflection,
   };
 }
 

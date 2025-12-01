@@ -2,7 +2,7 @@
 import express from 'express';
 import { query } from '../db.js';
 import { getNextHintForWeakness } from '../logic/gameLogic.js';
-import { callPasswordRetrieval, callSqlInjectionGame } from '../services/aiClient.js';
+import { callPasswordRetrieval, callSqlLeak } from '../services/aiClient.js';
 import { GAME_TYPE } from '../logic/gameLogic.js';
 
 const router = express.Router();
@@ -923,6 +923,14 @@ router.post('/:contestId/games/:gameId/session/:sessionId/prompt', async (req, r
   const { prompt } = req.body || {};
   const walletAddress = getWalletAddress(req);
 
+  console.log('Prompt request', {
+    contestId,
+    gameId: Number(gameId),
+    sessionId,
+    walletAddress,
+    prompt,
+  });
+
   if (!walletAddress) {
     return res.status(400).json({ error: 'Missing x-wallet-address header' });
   }
@@ -992,10 +1000,11 @@ router.post('/:contestId/games/:gameId/session/:sessionId/prompt', async (req, r
     };
 
     let aiResult;
+    let aiPayload;
 
     // 3) call AI based on game type
-    if (gameName === GAME_TYPE.PASSWORD_RETREIVAL) {
-      aiResult = await callPasswordRetrieval({
+    if (gameName === GAME_TYPE.PASSWORD_RETRIEVAL) {
+      aiPayload = {
         contestId,
         gameId: Number(gameId),
         sessionId,
@@ -1003,17 +1012,20 @@ router.post('/:contestId/games/:gameId/session/:sessionId/prompt', async (req, r
         difficulty,
         combination,
         secretAnswer: row.secretAnswer,
-      });
+      };
+      console.log('AI outbound payload (password-retrieval)', aiPayload);
+      aiResult = await callPasswordRetrieval(aiPayload);
     } else if (gameName === GAME_TYPE.SQL_INJECTION) {
-      // placeholder until /api/sql-injection contract is final
-      aiResult = await callSqlInjectionGame({
+      aiPayload = {
         contestId,
         gameId: Number(gameId),
         sessionId,
         prompt,
         difficulty,
         combination,
-      });
+      };
+      console.log('AI outbound payload (sql-leak)', aiPayload);
+      aiResult = await callSqlLeak(aiPayload);
     } else {
       return res.status(400).json({ error: `Unknown or unsupported game type: ${gameName}` });
     }

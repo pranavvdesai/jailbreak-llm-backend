@@ -1,5 +1,7 @@
 // src/services/aiClient.js
-const AI_BASE = process.env.AI_AGENT_BASE_URL || 'http://localhost:8000';
+const AI_BASE = (process.env.AI_AGENT_BASE_URL || 'http://localhost:8000')
+  .trim()
+  .replace(/\/+$/, ''); // drop trailing slashes to avoid //api paths
 
 /**
  * PASSWORD_RETREIVAL game
@@ -38,20 +40,28 @@ export async function callPasswordRetrieval({
     );
   }
 
-  const data = await resp.json();
+  const text = await resp.text();
+  let assistantMessage = text;
+  try {
+    const parsed = JSON.parse(text);
+    if (typeof parsed === 'string') {
+      assistantMessage = parsed;
+    } else if (parsed && typeof parsed.assistantMessage === 'string') {
+      assistantMessage = parsed.assistantMessage;
+    }
+  } catch (_) {
+    // treat as plain text response
+  }
+
   return {
-    assistantMessage: data.assistantMessage || '',
+    assistantMessage,
   };
 }
 
 /**
- * SQL_INJECTION gameplay endpoint.
- * Same identifier + persona + secret fields + target_row_id / target_field.
- *
- * NOTE: only call this once your SQL_INJECTION game flow + DB fields
- * (target_row_id/target_field) are wired on the backend.
+ * SQL leak gameplay endpoint.
  */
-export async function callSqlInjectionGame({
+export async function callSqlLeak({
   contestId,
   gameId,
   sessionId,
@@ -68,7 +78,7 @@ export async function callSqlInjectionGame({
     combination,
   };
 
-  const resp = await fetch(`${AI_BASE}/api/sql-injection`, {
+  const resp = await fetch(`${AI_BASE}/api/sql-leak`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -77,13 +87,25 @@ export async function callSqlInjectionGame({
   if (!resp.ok) {
     const text = await resp.text();
     throw new Error(
-      `AI /api/sql-injection failed: ${resp.status} ${text}`
+      `AI /api/sql-leak failed: ${resp.status} ${text}`
     );
   }
 
-  const data = await resp.json();
+  const text = await resp.text();
+  let assistantMessage = text;
+  try {
+    const parsed = JSON.parse(text);
+    if (typeof parsed === 'string') {
+      assistantMessage = parsed;
+    } else if (parsed && typeof parsed.assistantMessage === 'string') {
+      assistantMessage = parsed.assistantMessage;
+    }
+  } catch (_) {
+    // treat as plain text response
+  }
+
   return {
-    assistantMessage: data.assistantMessage || '',
+    assistantMessage,
   };
 }
 
