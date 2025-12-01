@@ -262,7 +262,7 @@ router.post('/contests/:contestId/games', async (req, res) => {
 
       // 3) final secretAnswer used for DB + ZK
       secretAnswer = answer;
-      sqlData = sqlSecret.secret;
+      sqlData = { name: sqlSecret.secret?.name || null };
 
       console.log(
         '[SQL_INJECTION] Generated secret',
@@ -370,7 +370,7 @@ router.post('/contests/:contestId/games', async (req, res) => {
       gameId: game.game_id,
       gameName: game.game_name,
       difficulty: game.difficulty,
-      personaId: game.persona_id,
+      persona: game.persona_id ? { persona: game.persona_id.persona } : null,
       systemPrompt: game.system_prompt,
       modelName: game.model_name,
       maxAttemptsPerPlayer: game.max_attempts_per_player,

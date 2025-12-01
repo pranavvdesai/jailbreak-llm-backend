@@ -76,6 +76,9 @@ router.get('/', async (req, res) => {
     try {
         const statusParam = req.query.status || 'open,running';
         const statuses = statusParam.split(',').map((s) => s.trim());
+        const includeGames = ['1', 'true', 'yes'].includes(
+          String(req.query.includeGames || '').toLowerCase()
+        );
 
         const result = await query(
             `
@@ -100,7 +103,46 @@ router.get('/', async (req, res) => {
             [statuses]
         );
 
-        res.json(result.rows);
+        const contests = result.rows;
+
+        if (includeGames && contests.length > 0) {
+          const contestIds = contests.map((c) => c.id);
+          const gamesRes = await query(
+            `
+            SELECT
+              contest_id AS "contestId",
+              id         AS "gameConfigId",
+              game_id    AS "gameId",
+              game_name  AS "gameName",
+              difficulty,
+              persona_id AS "persona",
+              sql_data   AS "sqlData"
+            FROM contest_game_configs
+            WHERE contest_id = ANY($1::uuid[])
+            ORDER BY game_id ASC
+            `,
+            [contestIds]
+          );
+
+          const grouped = new Map();
+          for (const g of gamesRes.rows) {
+            if (!grouped.has(g.contestId)) grouped.set(g.contestId, []);
+            grouped.get(g.contestId).push({
+              gameConfigId: g.gameConfigId,
+              gameId: g.gameId,
+              gameName: g.gameName,
+              difficulty: g.difficulty,
+              persona: g.persona ? { persona: g.persona.persona } : null,
+              sqlData: g.sqlData ? { name: g.sqlData.name } : null,
+            });
+          }
+
+          contests.forEach((c) => {
+            c.games = grouped.get(c.id) || [];
+          });
+        }
+
+        res.json(contests);
     } catch (err) {
         console.error('Error listing contests', err);
         res.status(500).json({ error: 'Internal server error' });
@@ -159,7 +201,14 @@ router.get('/:contestId', async (req, res) => {
             [contestId]
         );
 
-        contest.games = gamesRes.rows;
+        contest.games = gamesRes.rows.map((g) => ({
+          gameConfigId: g.gameConfigId,
+          gameId: g.gameId,
+          gameName: g.gameName,
+          difficulty: g.difficulty,
+          persona: g.persona ? { persona: g.persona.persona } : null,
+          sqlData: g.sqlData ? { name: g.sqlData.name } : null,
+        }));
 
         res.json(contest);
     } catch (err) {
