@@ -1,4 +1,3 @@
-// src/routes/attempts.js
 import express from 'express';
 import { query } from '../db.js';
 import { verifyAttemptWithZk } from '../services/zkClient.js';
@@ -9,11 +8,6 @@ function getWalletAddress(req) {
   return req.header('x-wallet-address')?.trim();
 }
 
-/**
- * GET /api/attempts/:attemptId
- * Header: x-wallet-address (required)
- * Returns attempt details (no ZK interaction here).
- */
 router.get('/:attemptId', async (req, res) => {
   const { attemptId } = req.params;
   const walletAddress = getWalletAddress(req);
@@ -23,7 +17,6 @@ router.get('/:attemptId', async (req, res) => {
   }
 
   try {
-    // join attempts -> participants -> users to ensure ownership
     const result = await query(
       `
       SELECT
@@ -74,15 +67,6 @@ router.get('/:attemptId', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-/**
- * POST /api/attempts/:attemptId/verify
- * Header: x-wallet-address
- * Body: {}
- *
- * - Ensures attempt belongs to wallet
- * - If already verified, returns existing data (no re-run)
- * - Otherwise calls ZK server and updates ATTEMPTS row
- */
 router.post('/:attemptId/verify', async (req, res) => {
   const { attemptId } = req.params;
   const walletAddress = getWalletAddress(req);
@@ -92,7 +76,6 @@ router.post('/:attemptId/verify', async (req, res) => {
   }
 
   try {
-    // 1) Load attempt + participant + user + contest + game + commitment
     const result = await query(
       `
       SELECT
@@ -147,7 +130,6 @@ router.post('/:attemptId/verify', async (req, res) => {
 
     const row = result.rows[0];
 
-    // If already verified, just return what we have
     if (row.verified) {
       return res.json({
         attemptId: row.attemptId,
@@ -164,14 +146,12 @@ router.post('/:attemptId/verify', async (req, res) => {
       });
     }
 
-    // sanity: we need commitment + salt + secret
     if (!row.commitmentHash || !row.saltFull || !row.answerPlaintext) {
       return res.status(500).json({
         error: 'Missing commitment/secret data for this attempt; cannot run ZK verification',
       });
     }
 
-    // 2) Call ZK server
     const zkResp = await verifyAttemptWithZk({
       attemptId: row.attemptId,
       contestId: row.contestId,
@@ -186,7 +166,6 @@ router.post('/:attemptId/verify', async (req, res) => {
       commitmentHash: row.commitmentHash,
     });
 
-    // Expected zkResp shape (from your spec)
     const publicInputs = zkResp.publicInputs || {};
     const proof = zkResp.proof || {};
     const storacha = zkResp.storacha || {};
@@ -196,10 +175,8 @@ router.post('/:attemptId/verify', async (req, res) => {
 
     const verificationMeta = {
       ...zkResp,
-      // keep copy for debug, but we will also store separate columns below
     };
 
-    // 3) Update ATTEMPTS row
     const updateRes = await query(
       `
       UPDATE attempts

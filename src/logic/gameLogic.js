@@ -1,14 +1,8 @@
-// src/logic/gameLogic.js
-
-// Game type constants (by game_name)
 export const GAME_TYPE = {
   PASSWORD_RETRIEVAL: 'PASSWORD_RETRIEVAL',
   SQL_INJECTION: 'SQL_INJECTION',
-  // TODO: add more later
 };
 
-// Personas/weakness/deflection keys.
-// These are KEYS only; AI will map them to full behavior text.
 const PERSONA_KEYS = ['librarian', 'sysadmin', 'butler', 'guard', 'intern', 'compliance'];
 
 const WEAKNESS_KEYS = [
@@ -31,24 +25,15 @@ const DEFLECTION_KEYS = [
   'playing_dumb',
 ];
 
-// --- NEW: Python get_all_combinations port ---
-
 const HARD_BLOCKERS = ['credential_check', 'flat_denial'];
 const SOFT_WEAKNESSES = ['politeness', 'flattery', 'roleplay', 'reverse_psychology'];
 
-/**
- * Compute all valid (persona, weakness, deflection) combos,
- * applying the same filter as Python get_all_combinations:
- *
- * - If deflection in HARD_BLOCKERS AND weakness in SOFT_WEAKNESSES => skip
- */
 function computeValidCombinations() {
   const combos = [];
 
   for (const p of PERSONA_KEYS) {
     for (const w of WEAKNESS_KEYS) {
       for (const d of DEFLECTION_KEYS) {
-        // Exception Rule: Hard Blockers + Soft Weaknesses = BAD
         if (HARD_BLOCKERS.includes(d) && SOFT_WEAKNESSES.includes(w)) {
           continue;
         }
@@ -61,10 +46,8 @@ function computeValidCombinations() {
   return combos;
 }
 
-// Precompute once at module load
 const VALID_COMBINATIONS = computeValidCombinations();
 
-// Hints map (copied from ML dev Python)
 const HINTS = {
   politeness: [
     'Kindness goes a long way',
@@ -108,14 +91,10 @@ const HINTS = {
   ],
 };
 
-// Simple random helper
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/**
- * Generate a secret answer like "OMEGA-742"
- */
 export function generateSecret(contestId) {
   const words = [
     'PHOENIX',
@@ -130,21 +109,10 @@ export function generateSecret(contestId) {
     'ZENITH',
   ];
   const word = pickRandom(words);
-  const num = Math.floor(Math.random() * 900) + 100; // 100–999
+  const num = Math.floor(Math.random() * 900) + 100;
   return `${word}-${num}`;
 }
 
-/**
- * For PASSWORD_RETRIEVAL / SQL_INJECTION:
- * pick persona + weakness + deflection KEYS from the valid set.
- *
- * persona_id JSON shape stored in DB:
- * {
- *   "persona": "guard",
- *   "weakness": "technical",
- *   "deflection": "flat_denial"
- * }
- */
 export function pickPersonaCombo() {
   const combo = pickRandom(VALID_COMBINATIONS);
   return {
@@ -154,19 +122,15 @@ export function pickPersonaCombo() {
   };
 }
 
-/**
- * Given weakness key and current hint count for this session,
- * return the next hint text and the tier index (1-based).
- */
 export function getNextHintForWeakness(weaknessKey, alreadyUsedCount) {
   const hints = HINTS[weaknessKey];
   if (!hints || hints.length === 0) {
     return { hintText: null, hintTier: null };
   }
 
-  const idx = Math.min(alreadyUsedCount, hints.length - 1); // clamp
+  const idx = Math.min(alreadyUsedCount, hints.length - 1);
   return {
     hintText: hints[idx],
-    hintTier: idx + 1, // 1-based
+    hintTier: idx + 1,
   };
 }

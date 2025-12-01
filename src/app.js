@@ -1,4 +1,3 @@
-// src/app.js
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -14,7 +13,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Simple health check
 app.get('/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -25,7 +23,6 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// API routers
 app.use('/api/contests', contestsRouter);
 app.use('/api/attempts', attemptsRouter);
 app.use('/api/admin', adminContestsRouter);

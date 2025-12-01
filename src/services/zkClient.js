@@ -1,15 +1,7 @@
-// src/services/zkClient.js
 import { query } from '../db.js';
 
-// Base URL for the verification server
 const VERIF_BASE = process.env.VERIFICATION_SERVER_URL || 'http://localhost:3001';
 
-/**
- * Try to create a commitment via verification server and
- * then update game_commitments row with returned data.
- *
- * If call fails, we just log and move on (DB row still exists with plaintext).
- */
 export async function createCommitmentAndUpdate({
   contestId,
   onchainContestId,

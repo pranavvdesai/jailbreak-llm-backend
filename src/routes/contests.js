@@ -1,4 +1,3 @@
-// src/routes/contests.js
 import express from 'express';
 import { query } from '../db.js';
 import { getNextHintForWeakness } from '../logic/gameLogic.js';
@@ -7,13 +6,11 @@ import { GAME_TYPE } from '../logic/gameLogic.js';
 
 const router = express.Router();
 
-// Helper: get wallet from header
 function getWalletAddress(req) {
     const addr = req.header('x-wallet-address');
     return addr ? addr.toLowerCase() : null;
 }
 
-// Ensure user row exists for this wallet, return user_id (uuid)
 async function getOrCreateUserId(walletAddress) {
     const existing = await query(
         `SELECT id FROM users WHERE wallet_address = $1`,
@@ -21,7 +18,6 @@ async function getOrCreateUserId(walletAddress) {
     );
 
     if (existing.rows.length > 0) {
-        // optional: update last_login_at
         await query(
             `UPDATE users SET last_login_at = NOW() WHERE id = $1`,
             [existing.rows[0].id]
@@ -38,9 +34,7 @@ async function getOrCreateUserId(walletAddress) {
     return insert.rows[0].id;
 }
 
-// Fetch participant row for a given contest + wallet (and ensure user exists)
 async function getParticipantForContest(contestId, walletAddress) {
-  // 1) find user
   const userRes = await query(
     `SELECT id FROM users WHERE wallet_address = $1`,
     [walletAddress]
@@ -50,7 +44,6 @@ async function getParticipantForContest(contestId, walletAddress) {
   }
   const userId = userRes.rows[0].id;
 
-  // 2) find participant
   const participantRes = await query(
     `
     SELECT *
@@ -68,10 +61,6 @@ async function getParticipantForContest(contestId, walletAddress) {
 }
 
 
-/**
- * 1.1 List Contests
- * GET /api/contests?status=open,running
- */
 router.get('/', async (req, res) => {
     try {
         const statusParam = req.query.status || 'open,running';
@@ -155,10 +144,6 @@ router.get('/', async (req, res) => {
     }
 });
 
-/**
- * 1.2 Get Contest Details with Games
- * GET /api/contests/:contestId
- */
 router.get('/:contestId', async (req, res) => {
     const { contestId } = req.params;
 
@@ -229,12 +214,6 @@ router.get('/:contestId', async (req, res) => {
     }
 });
 
-/**
- * 2.1 Join Contest (after on-chain deposit)
- * POST /api/contests/:contestId/join
- * Header: x-wallet-address
- * Body: { txHash: "0x..." }
- */
 router.post('/:contestId/join', async (req, res) => {
     const { contestId } = req.params;
     const walletAddress = getWalletAddress(req);
@@ -248,7 +227,6 @@ router.post('/:contestId/join', async (req, res) => {
     }
 
     try {
-        // ensure contest exists and is open
         const contestRes = await query(
             `SELECT id, status, entry_fee_wei FROM contests WHERE id = $1`,
             [contestId]
@@ -261,10 +239,8 @@ router.post('/:contestId/join', async (req, res) => {
             return res.status(400).json({ error: 'Contest is not open for joining' });
         }
 
-        // get or create user
         const userId = await getOrCreateUserId(walletAddress);
 
-        // check if already participant
         const existingParticipant = await query(
             `
       SELECT id
@@ -278,7 +254,6 @@ router.post('/:contestId/join', async (req, res) => {
             return res.status(400).json({ error: 'Already joined this contest' });
         }
 
-        // insert participant
         const insertRes = await query(
             `
       INSERT INTO contest_participants (
@@ -333,11 +308,6 @@ router.post('/:contestId/join', async (req, res) => {
     }
 });
 
-/**
- * 2.2 Get My Contest Status
- * GET /api/contests/:contestId/me
- * Header: x-wallet-address (required)
- */
 router.get('/:contestId/me', async (req, res) => {
   const { contestId } = req.params;
   const walletAddress = getWalletAddress(req);
@@ -347,7 +317,6 @@ router.get('/:contestId/me', async (req, res) => {
   }
 
   try {
-    // ensure contest exists
     const contestRes = await query(
       `SELECT id FROM contests WHERE id = $1`,
       [contestId]
@@ -356,13 +325,11 @@ router.get('/:contestId/me', async (req, res) => {
       return res.status(404).json({ error: 'Contest not found' });
     }
 
-    // find participant
     const participant = await getParticipantForContest(contestId, walletAddress);
     if (!participant) {
       return res.status(403).json({ error: 'User is not a participant in this contest' });
     }
 
-    // fetch all games for this contest with active session info (if any)
     const gamesRes = await query(
       `
       SELECT
@@ -411,11 +378,6 @@ router.get('/:contestId/me', async (req, res) => {
   }
 });
 
-/**
- * 3.1 Get or Create Active Session for Game
- * POST /api/contests/:contestId/games/:gameId/session
- * Header: x-wallet-address (required)
- */
 router.post('/:contestId/games/:gameId/session', async (req, res) => {
   const { contestId, gameId } = req.params;
   const walletAddress = getWalletAddress(req);
@@ -425,7 +387,6 @@ router.post('/:contestId/games/:gameId/session', async (req, res) => {
   }
 
   try {
-    // ensure contest exists
     const contestRes = await query(
       `SELECT id FROM contests WHERE id = $1`,
       [contestId]
@@ -434,13 +395,11 @@ router.post('/:contestId/games/:gameId/session', async (req, res) => {
       return res.status(404).json({ error: 'Contest not found' });
     }
 
-    // find participant
     const participant = await getParticipantForContest(contestId, walletAddress);
     if (!participant) {
       return res.status(403).json({ error: 'User is not a participant in this contest' });
     }
 
-    // find game config for this contest + gameId
     const gameRes = await query(
       `
       SELECT id, game_id
@@ -454,7 +413,6 @@ router.post('/:contestId/games/:gameId/session', async (req, res) => {
     }
     const gameConfig = gameRes.rows[0];
 
-    // check if active session exists
     const activeRes = await query(
       `
       SELECT *
@@ -482,7 +440,6 @@ router.post('/:contestId/games/:gameId/session', async (req, res) => {
       });
     }
 
-    // no active session -> create a new one
     const nextIndexRes = await query(
       `
       SELECT COALESCE(MAX(session_index), 0) + 1 AS next_index
@@ -542,11 +499,6 @@ router.post('/:contestId/games/:gameId/session', async (req, res) => {
   }
 });
 
-/**
- * 3.2 Reset Session (forget AI context)
- * POST /api/contests/:contestId/games/:gameId/session/:sessionId/reset
- * Header: x-wallet-address (required)
- */
 router.post('/:contestId/games/:gameId/session/:sessionId/reset', async (req, res) => {
   const { contestId, gameId, sessionId } = req.params;
   const walletAddress = getWalletAddress(req);
@@ -556,13 +508,11 @@ router.post('/:contestId/games/:gameId/session/:sessionId/reset', async (req, re
   }
 
   try {
-    // find participant
     const participant = await getParticipantForContest(contestId, walletAddress);
     if (!participant) {
       return res.status(403).json({ error: 'User is not a participant in this contest' });
     }
 
-    // verify session belongs to this participant + game
     const sessionRes = await query(
       `
       SELECT *
@@ -582,7 +532,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/reset', async (req, re
     const oldSession = sessionRes.rows[0];
     const gameConfigId = oldSession.game_config_id;
 
-    // mark old session as inactive
     await query(
       `
       UPDATE game_sessions
@@ -593,7 +542,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/reset', async (req, re
       [sessionId]
     );
 
-    // compute next session index
     const nextIndexRes = await query(
       `
       SELECT COALESCE(MAX(session_index), 0) + 1 AS next_index
@@ -604,7 +552,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/reset', async (req, re
     );
     const nextIndex = nextIndexRes.rows[0].next_index || 1;
 
-    // create new session
     const insertRes = await query(
       `
       INSERT INTO game_sessions (
@@ -648,12 +595,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/reset', async (req, re
   }
 });
 
-/**
- * 5.1 Submit Answer for a Game (fast check, no ZK)
- * POST /api/contests/:contestId/games/:gameId/session/:sessionId/submit-answer
- * Headers: x-wallet-address (required)
- * Body: { submittedAnswer: string }
- */
 router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async (req, res) => {
   const { contestId, gameId, sessionId } = req.params;
   const { submittedAnswer } = req.body || {};
@@ -667,13 +608,11 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
   }
 
   try {
-    // 1) get participant for this contest + wallet
     const participant = await getParticipantForContest(contestId, walletAddress);
     if (!participant) {
       return res.status(403).json({ error: 'User is not a participant in this contest' });
     }
 
-    // 2) verify session belongs to this participant + game
     const sessionRes = await query(
       `
       SELECT *
@@ -692,14 +631,12 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
 
     const session = sessionRes.rows[0];
 
-    // 3) prevent submissions after solved
     if (session.is_solved) {
       return res.status(400).json({ error: 'Game already solved for this session' });
     }
 
     const gameConfigId = session.game_config_id;
 
-    // 4) fetch secret answer from GAME_COMMITMENTS
     const commitRes = await query(
       `
       SELECT gc.id AS "gameConfigId",
@@ -720,11 +657,9 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
 
     const { answerPlaintext } = commitRes.rows[0];
 
-    // 5) fast check correctness (simple trim + case-sensitive; tweak later if needed)
     const isCorrect =
       submittedAnswer.trim() === (answerPlaintext || '').trim();
 
-    // 6) compute next attempt_index for this participant + game
     const nextIndexRes = await query(
       `
       SELECT COALESCE(MAX(attempt_index), 0) + 1 AS next_index
@@ -736,7 +671,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
     );
     const attemptIndex = nextIndexRes.rows[0].next_index || 1;
 
-    // 7) insert ATTEMPT
     const attemptRes = await query(
       `
       INSERT INTO attempts (
@@ -764,11 +698,9 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
 
     const attemptId = attemptRes.rows[0].id;
 
-    // 8) if first correct attempt, mark session + participant
     let gameSolvedNow = false;
 
     if (isCorrect) {
-      // mark session solved
       await query(
         `
         UPDATE game_sessions
@@ -780,7 +712,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
         [sessionId]
       );
 
-      // increment total_games_solved for participant
       await query(
         `
         UPDATE contest_participants
@@ -793,7 +724,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
 
       gameSolvedNow = true;
     } else {
-      // update last_activity_at for session
       await query(
         `
         UPDATE game_sessions
@@ -804,7 +734,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
       );
     }
 
-    // 9) build response
     res.json({
       attemptId,
       submittedAnswer,
@@ -817,15 +746,10 @@ router.post('/:contestId/games/:gameId/session/:sessionId/submit-answer', async 
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-/**
- * 7.1 Contest Leaderboard
- * GET /api/contests/:contestId/leaderboard
- */
 router.get('/:contestId/leaderboard', async (req, res) => {
   const { contestId } = req.params;
 
   try {
-    // ensure contest exists
     const contestRes = await query(
       `SELECT id FROM contests WHERE id = $1`,
       [contestId]
@@ -834,7 +758,6 @@ router.get('/:contestId/leaderboard', async (req, res) => {
       return res.status(404).json({ error: 'Contest not found' });
     }
 
-    // basic leaderboard: solved desc, prompts asc, joined_at asc
     const lbRes = await query(
       `
       SELECT
@@ -883,13 +806,11 @@ router.post('/:contestId/games/:gameId/session/:sessionId/hint', async (req, res
   }
 
   try {
-    // 1) participant
     const participant = await getParticipantForContest(contestId, walletAddress);
     if (!participant) {
       return res.status(403).json({ error: 'User is not a participant in this contest' });
     }
 
-    // 2) validate session belongs to participant + game
     const sessionRes = await query(
       `
       SELECT *
@@ -907,7 +828,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/hint', async (req, res
 
     const session = sessionRes.rows[0];
 
-    // 3) get game_config + persona JSON
     const gameRes = await query(
       `
       SELECT persona_id
@@ -928,7 +848,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/hint', async (req, res
       return res.status(400).json({ error: 'No weakness defined for this game (no hints available)' });
     }
 
-    // 4) count existing hints for this session
     const countRes = await query(
       `
       SELECT COUNT(*)::INT AS count
@@ -939,14 +858,12 @@ router.post('/:contestId/games/:gameId/session/:sessionId/hint', async (req, res
     );
     const usedCount = countRes.rows[0].count || 0;
 
-    // 5) get next hint
     const { hintText, hintTier } = getNextHintForWeakness(weaknessKey, usedCount);
 
     if (!hintText) {
       return res.status(400).json({ error: 'No more hints available for this weakness' });
     }
 
-    // 6) insert UNLOCKED_HINTS row (no cost/tx yet)
     await query(
       `
       INSERT INTO unlocked_hints (
@@ -960,7 +877,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/hint', async (req, res
       [sessionId, hintTier, 0, null]
     );
 
-    // 7) increment participant hint counter
     await query(
       `
       UPDATE contest_participants
@@ -979,8 +895,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/hint', async (req, res
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-// 4.1 Send Prompt for Current Session (calls AI)
-// POST /api/contests/:contestId/games/:gameId/session/:sessionId/prompt
 router.post('/:contestId/games/:gameId/session/:sessionId/prompt', async (req, res) => {
   const { contestId, gameId, sessionId } = req.params;
   const { prompt } = req.body || {};
@@ -1002,13 +916,11 @@ router.post('/:contestId/games/:gameId/session/:sessionId/prompt', async (req, r
   }
 
   try {
-    // 1) participant
     const participant = await getParticipantForContest(contestId, walletAddress);
     if (!participant) {
       return res.status(403).json({ error: 'User is not a participant in this contest' });
     }
 
-    // 2) session + game config + commitment in a single query
     const sessionRes = await query(
       `
       SELECT
@@ -1045,7 +957,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/prompt', async (req, r
 
     const row = sessionRes.rows[0];
 
-    // sanity: we expect a secretAnswer if commitment was set up correctly
     if (!row.secretAnswer) {
       return res.status(500).json({
         error: 'No secretAnswer/commitment found for this game. Check contest setup.',
@@ -1065,7 +976,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/prompt', async (req, r
     let aiResult;
     let aiPayload;
 
-    // 3) call AI based on game type
     if (gameName === GAME_TYPE.PASSWORD_RETRIEVAL) {
       aiPayload = {
         contestId,
@@ -1093,7 +1003,6 @@ router.post('/:contestId/games/:gameId/session/:sessionId/prompt', async (req, r
       return res.status(400).json({ error: `Unknown or unsupported game type: ${gameName}` });
     }
 
-    // 4) update counters
     await query(
       `
       UPDATE game_sessions

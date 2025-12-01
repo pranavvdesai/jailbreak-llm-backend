@@ -1,21 +1,15 @@
-// src/services/aiClient.js
 const AI_BASE = (process.env.AI_AGENT_BASE_URL || 'http://localhost:8000')
   .trim()
-  .replace(/\/+$/, ''); // drop trailing slashes to avoid //api paths
+  .replace(/\/+$/, '');
 
-/**
- * PASSWORD_RETREIVAL game
- * Backend passes persona + weakness + deflection + secretAnswer.
- * target_row_id / target_field are always null for this game type.
- */
 export async function callPasswordRetrieval({
   contestId,
   gameId,
   sessionId,
   prompt,
   difficulty,
-  combination,   // { persona, weakness, deflection }
-  secretAnswer,  // string
+  combination,
+  secretAnswer,
 }) {
   const body = {
     contestId,
@@ -50,7 +44,6 @@ export async function callPasswordRetrieval({
       assistantMessage = parsed.assistantMessage;
     }
   } catch (_) {
-    // treat as plain text response
   }
 
   return {
@@ -58,16 +51,13 @@ export async function callPasswordRetrieval({
   };
 }
 
-/**
- * SQL leak gameplay endpoint.
- */
 export async function callSqlLeak({
   contestId,
   gameId,
   sessionId,
   prompt,
   difficulty,
-  combination,   // { persona, weakness, deflection }
+  combination,
 }) {
   const body = {
     contestId,
@@ -101,7 +91,6 @@ export async function callSqlLeak({
       assistantMessage = parsed.assistantMessage;
     }
   } catch (_) {
-    // treat as plain text response
   }
 
   return {
@@ -109,13 +98,6 @@ export async function callSqlLeak({
   };
 }
 
-/**
- * Helper for contest creation (SQL_INJECTION type):
- * Fetch secret row/field from AI.
- *
- * Example:
- *   GET /internal/ai/sql-secret?target_row_id=100&target_field=ssn
- */
 export async function fetchSqlSecret({ targetRowId, targetField }) {
   const url = new URL(`${AI_BASE}/internal/ai/sql-secret`);
   url.searchParams.set('target_row_id', String(targetRowId));
@@ -134,6 +116,5 @@ export async function fetchSqlSecret({ targetRowId, targetField }) {
   }
 
   const data = await resp.json();
-  // { target_row_id, target_field, secret: { ssn/email/salary, name, ... } }
   return data;
 }

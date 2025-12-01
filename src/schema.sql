@@ -1,12 +1,6 @@
--- ==============================
--- LLM Jailbreak Arena DB Schema
--- ==============================
 
--- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- WARNING: This will DROP existing tables (dev/hackathon-friendly).
--- If you want to keep data, remove the DROP TABLE statements.
 
 DROP TABLE IF EXISTS attempts CASCADE;
 DROP TABLE IF EXISTS unlocked_hints CASCADE;
@@ -17,7 +11,6 @@ DROP TABLE IF EXISTS contest_game_configs CASCADE;
 DROP TABLE IF EXISTS contests CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
--- 1. USERS
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     wallet_address VARCHAR(42) NOT NULL UNIQUE,
@@ -25,7 +18,6 @@ CREATE TABLE users (
     last_login_at TIMESTAMP WITHOUT TIME ZONE
 );
 
--- 2. CONTESTS
 CREATE TABLE contests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     onchain_contest_id BIGINT NOT NULL,
@@ -44,7 +36,6 @@ CREATE TABLE contests (
 
 CREATE INDEX idx_contests_status ON contests(status);
 
--- 3. CONTEST_GAME_CONFIGS
 CREATE TABLE contest_game_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     contest_id UUID NOT NULL REFERENCES contests(id) ON DELETE CASCADE,
@@ -56,9 +47,7 @@ CREATE TABLE contest_game_configs (
     model_name VARCHAR(100),
     max_attempts_per_player INT,
     max_hints INT,
-    -- SQL leak metadata (optional)
     sql_data JSONB,
-    -- Proof metadata (optional)
     proof_ipfs TEXT,
     proof_smart_contract TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -68,7 +57,6 @@ CREATE TABLE contest_game_configs (
 
 CREATE INDEX idx_game_configs_contest ON contest_game_configs(contest_id);
 
--- 4. GAME_COMMITMENTS
 CREATE TABLE game_commitments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     contest_id UUID NOT NULL REFERENCES contests(id) ON DELETE CASCADE,
@@ -87,7 +75,6 @@ CREATE TABLE game_commitments (
 
 CREATE INDEX idx_commitments_contest ON game_commitments(contest_id);
 
--- 5. CONTEST_PARTICIPANTS
 CREATE TABLE contest_participants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     contest_id UUID NOT NULL REFERENCES contests(id) ON DELETE CASCADE,
@@ -113,7 +100,6 @@ CREATE INDEX idx_participants_contest_user
 CREATE INDEX idx_participants_contest
     ON contest_participants (contest_id);
 
--- 6. GAME_SESSIONS
 CREATE TABLE game_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     participant_id UUID NOT NULL REFERENCES contest_participants(id) ON DELETE CASCADE,
@@ -136,7 +122,6 @@ CREATE INDEX idx_sessions_participant_game_active
 CREATE INDEX idx_sessions_contest
     ON game_sessions (contest_id);
 
--- 7. UNLOCKED_HINTS
 CREATE TABLE unlocked_hints (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
@@ -148,7 +133,6 @@ CREATE TABLE unlocked_hints (
 
 CREATE INDEX idx_hints_session ON unlocked_hints(session_id);
 
--- 8. ATTEMPTS
 CREATE TABLE attempts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
